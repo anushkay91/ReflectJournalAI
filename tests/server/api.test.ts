@@ -131,4 +131,35 @@ describe("Backend API Integration Tests", () => {
       expect(res.body.message).not.toContain("stack");
     });
   });
+
+  describe("POST /api/chat - Security hardening & production guard tests", () => {
+    it("strictly rejects x-test-mock-user when NODE_ENV is production", async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "production";
+      const prodApp = await createExpressApp();
+
+      const res = await request(prodApp)
+        .post("/api/chat")
+        .set("x-test-mock-user", "attacker-uid")
+        .send({ prompt: "Testing production auth bypass protection" });
+
+      process.env.NODE_ENV = originalEnv;
+
+      expect(res.status).toBe(401);
+      expect(res.body).toHaveProperty("error", "Authentication required");
+    });
+
+    it("rejects malformed history or payload structures with 400", async () => {
+      const res = await request(app)
+        .post("/api/chat")
+        .set("x-test-mock-user", "user-123")
+        .send({
+          prompt: "Valid prompt",
+          history: "malformed-string-instead-of-array",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error", "Invalid request payload");
+    });
+  });
 });

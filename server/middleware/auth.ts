@@ -42,8 +42,8 @@ export async function authenticateFirebaseUser(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  // Allow test mock bypass only during test suite runs
-  if (process.env.NODE_ENV === "test" && req.headers["x-test-mock-user"]) {
+  // Strictly prevent test mock bypass in production environments, even if misconfigured
+  if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV === "test" && req.headers["x-test-mock-user"]) {
     req.user = {
       uid: String(req.headers["x-test-mock-user"]),
       email: "testuser@example.com",

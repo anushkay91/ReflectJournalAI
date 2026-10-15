@@ -11,15 +11,34 @@ service cloud.firestore {
       // Must be authenticated and the owner of this user document tree
       allow read, delete: if request.auth != null && request.auth.uid == userId;
 
-      allow create, update: if request.auth != null 
+      // Allow create with strict schema, permitted fields, types, and length limits
+      allow create: if request.auth != null 
         && request.auth.uid == userId
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.aiResponse is string)
+        && request.resource.data.aiResponse.size() <= 10000
         && (!('score' in request.resource.data) || (request.resource.data.score is number && request.resource.data.score >= 1 && request.resource.data.score <= 100))
         && (!('mood' in request.resource.data) || (request.resource.data.mood is string && request.resource.data.mood.size() <= 100))
-        && (!('category' in request.resource.data) || (request.resource.data.category is string && request.resource.data.category.size() <= 100));
+        && (!('category' in request.resource.data) || (request.resource.data.category is string && request.resource.data.category.size() <= 100))
+        && request.resource.data.keys().hasOnly(['text', 'aiResponse', 'score', 'mood', 'category', 'createdAt', 'updatedAt']);
+
+      // Allow update with affected-key validation, immutable field protection (createdAt), and length limits
+      allow update: if request.auth != null 
+        && request.auth.uid == userId
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 10000
+        && (request.resource.data.aiResponse is string)
+        && request.resource.data.aiResponse.size() <= 10000
+        && (!('score' in request.resource.data) || (request.resource.data.score is number && request.resource.data.score >= 1 && request.resource.data.score <= 100))
+        && (!('mood' in request.resource.data) || (request.resource.data.mood is string && request.resource.data.mood.size() <= 100))
+        && (!('category' in request.resource.data) || (request.resource.data.category is string && request.resource.data.category.size() <= 100))
+        // Protect immutable createdAt field from being tampered with
+        && request.resource.data.createdAt == resource.data.createdAt
+        // Constrain update operations using affected-key validation
+        && request.writeFields.hasOnly(['text', 'aiResponse', 'score', 'mood', 'category', 'updatedAt']);
     }
   }
 }
